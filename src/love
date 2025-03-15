@@ -1,0 +1,56 @@
+#!/bin/bash
+
+set -e
+
+LOVE_VAR_DIR="/var/love/"
+
+if [[ $1 == "you" ]] && [[ ! -d "/var/love/love" ]] then 
+  echo " <3 creating repo database @ /var/love/love"
+  cd $LOVE_VAR_DIR
+  git clone $(cut -d "=" -f2 <<< $(cat /etc/love/conf.love | grep LOVE_REPO)) #> /dev/null 2> /dev/null
+  mkdir /var/cache/love
+fi
+
+if [[ $1 == "you" ]] && [[ -d "/var/love/love" ]] then
+  echo " <3 looking for database updates"
+  cd $LOVE_VAR_DIR"love"
+  git pull origin main #> /dev/null 2> /dev/null
+fi  
+
+if [[ $1 != "you" ]] && [[ -d "/var/love/love" ]]\
+  && [[ -d $LOVE_VAR_DIR"love/"$1 ]] && [[ $# > 0 ]] then 
+  cd $LOVE_VAR_DIR"love/"$1
+  echo " <3 diving into ${LOVE_VAR_DIR}love/$1"
+  cat ./build.love | while read line
+  do 
+    mode=$(echo "$line" | cut -d "!" -f1)
+    if [[ $mode == "G" ]] then
+      cmd=$(echo "$line" | cut -d "!" -f2)
+      echo " <3 found git repo $cmd"
+      git clone $cmd
+    elif [[ $mode == "C" ]] then
+      echo " <3 compiling: "$(echo "$line" | cut -d "!" -f2)
+      $(echo "$line" | cut -d "!" -f2)
+    elif [[ $mode == "I" ]] then
+      echo " <3 installing: "$(echo "$line" | cut -d "!" -f2)
+      $(echo "$line" | cut -d "!" -f2)
+    elif [[ $mode == "N" ]] then
+      cmd=$(echo "$line" | cut -d "!" -f2)
+      nname=$cmd
+      export $nname
+      cd $cmd
+    elif [[ $mode == "P" ]] then 
+      cmd=$(echo "$line" | cut -d "!" -f2)
+      cd /var/cache/love
+      if [[ ! -d $cmd ]] then
+        mkdir $cmd
+      fi
+      cd $cmd
+    fi
+  done
+  name=$PWD
+  cd ..
+  echo " <3 removing "$(echo "$name" | sed 's/love/cache/')
+  rm -rf $(echo "$name" | sed 's/love/cache/')  
+  echo " <3 done."
+fi
